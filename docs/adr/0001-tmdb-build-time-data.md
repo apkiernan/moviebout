@@ -3,6 +3,10 @@
 - **Status:** Accepted
 - **Date:** 2026-07-07
 - **Amended by:** [ADR 0002](0002-movie-night-rooms.md) — rooms add a free-tier backend; the "no backend" principle now applies to the core solo experience
+- **Amended 2026-07-07:** all lineups are now query-defined (mode 2); the hand-curated
+  lists were retired so every list is grounded in a TMDB chart or discover query rather
+  than personal curation. Enrich mode (mode 1) still serves both shapes if a hand-picked
+  list ever returns.
 
 ## Context
 

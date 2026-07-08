@@ -30,14 +30,19 @@ be resumed from the home screen.
 
 ## Editing the movie lists
 
-All lineups live in [`src/data/movies.ts`](src/data/movies.ts) — plain data, no API keys.
-Each list needs an `id`, `name`, `tagline`, and at least 16 movies (`title`, `year`, `blurb`).
-Add a list there and it appears in the dropdown automatically.
+Every lineup is _query-defined_: described in
+[`scripts/tmdb-lists.config.mjs`](scripts/tmdb-lists.config.mjs) as a TMDB query (`discover`
+params or a chart like `top_rated`, plus a `limit`) and materialized into
+[`src/data/generated.ts`](src/data/generated.ts) by the fetch script — no hand-picked
+lineups. Each list needs an `id`, `name`, `tagline`, and a query that yields at least 16
+movies (the app draws 16 per bracket). Add an entry, re-run the script, and the list
+appears in the dropdown; re-running also refreshes existing lists against TMDB's current
+ratings, so lists are only as fresh as the last run + deploy.
 
-Posters and cast come from TMDB at curation time
+Posters and cast come from TMDB at the same time
 ([ADR 0001](docs/adr/0001-tmdb-build-time-data.md)), into two companion files keyed by
 `` `${title}|${year}` ``: [`src/data/posters.ts`](src/data/posters.ts) and
-[`src/data/cast.ts`](src/data/cast.ts). After adding movies, run
+[`src/data/cast.ts`](src/data/cast.ts). After changing the config, run
 
 ```sh
 TMDB_API_KEY=... node scripts/fetch-tmdb.mjs
@@ -54,13 +59,8 @@ node scripts/fetch-tmdb.mjs
 
 Already-fetched movies are skipped,
 so re-runs only fetch what's new, and existing cast entries are never overwritten — hand
-edits are safe. A movie without a poster or cast entry still works; the ticket just falls
-back to text.
-
-Lists can also be _query-defined_ instead of hand-picked: describe them in
-[`scripts/tmdb-lists.config.mjs`](scripts/tmdb-lists.config.mjs) (TMDB `discover` params or
-a chart like `top_rated`, plus a `limit`) and the same script writes them to
-`src/data/generated.ts`. Re-running the script refreshes them.
+edits to posters/cast are safe. A movie without a poster or cast entry still works; the
+ticket just falls back to text.
 
 ## Stack
 
