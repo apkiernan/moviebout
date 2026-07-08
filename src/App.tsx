@@ -244,6 +244,10 @@ export default function App() {
 
 					<footer className="home__foot">
 						16 random movies · head-to-head votes · winner gets watched
+						<span className="home__tmdb">
+							This product uses the <a href="https://www.themoviedb.org">TMDB</a> API but is not
+							endorsed or certified by TMDB.
+						</span>
 					</footer>
 				</main>
 			)}

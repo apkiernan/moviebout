@@ -342,6 +342,19 @@ main {
 	text-align: center;
 }
 
+.home__tmdb {
+	display: block;
+	margin-top: 0.5rem;
+	font-size: 0.62rem;
+	text-transform: none;
+	letter-spacing: 0.08em;
+	color: rgba(243, 232, 210, 0.3);
+}
+
+.home__tmdb a {
+	color: inherit;
+}
+
 /* ----------------------------------------------------------------- field */
 
 .field__title {

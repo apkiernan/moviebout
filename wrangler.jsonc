@@ -1,0 +1,17 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "flickmadness",
+	"compatibility_date": "2026-07-07",
+	// Custom domains: Cloudflare provisions the DNS records and certs for
+	// these on deploy — never add A/CNAME records for them by hand.
+	"routes": [
+		{ "pattern": "flickmadness.com", "custom_domain": true },
+		{ "pattern": "www.flickmadness.com", "custom_domain": true }
+	],
+	// Assets-only Worker: no `main` script until the draft-rooms backend
+	// (Durable Objects) lands — then add `main` and a DO binding here.
+	"assets": {
+		"directory": "./dist",
+		"not_found_handling": "single-page-application"
+	}
+}

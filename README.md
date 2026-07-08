@@ -34,24 +34,40 @@ All lineups live in [`src/data/movies.ts`](src/data/movies.ts) — plain data, n
 Each list needs an `id`, `name`, `tagline`, and at least 16 movies (`title`, `year`, `blurb`).
 Add a list there and it appears in the dropdown automatically.
 
-Two companion files enrich the lists, both keyed by `` `${title}|${year}` ``:
+Posters and cast come from TMDB at curation time
+([ADR 0001](docs/adr/0001-tmdb-build-time-data.md)), into two companion files keyed by
+`` `${title}|${year}` ``: [`src/data/posters.ts`](src/data/posters.ts) and
+[`src/data/cast.ts`](src/data/cast.ts). After adding movies, run
 
-- [`src/data/cast.ts`](src/data/cast.ts) — hand-curated top-billed cast, shown on tickets.
-- [`src/data/posters.ts`](src/data/posters.ts) — generated poster URLs. After adding movies, run
+```sh
+TMDB_API_KEY=... node scripts/fetch-tmdb.mjs
+```
 
-  ```sh
-  node scripts/fetch-posters.mjs
-  ```
+with a free key from [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api)
+(either the v3 key or the v4 read access token works). For local development, drop the key
+in a `.env` file at the repo root instead (gitignored):
 
-  which looks up each film's Wikipedia article and records its infobox poster
-  (hotlinked from upload.wikimedia.org — no key needed). Already-fetched movies are
-  skipped, so re-runs only fetch what's new. A movie without a poster or cast entry
-  still works; the ticket just falls back to text.
+```sh
+echo 'TMDB_API_KEY=...' > .env
+node scripts/fetch-tmdb.mjs
+```
+
+Already-fetched movies are skipped,
+so re-runs only fetch what's new, and existing cast entries are never overwritten — hand
+edits are safe. A movie without a poster or cast entry still works; the ticket just falls
+back to text.
+
+Lists can also be _query-defined_ instead of hand-picked: describe them in
+[`scripts/tmdb-lists.config.mjs`](scripts/tmdb-lists.config.mjs) (TMDB `discover` params or
+a chart like `top_rated`, plus a `limit`) and the same script writes them to
+`src/data/generated.ts`. Re-running the script refreshes them.
 
 ## Stack
 
 Vite + React + TypeScript. Fonts (Anton, Archivo) are bundled via Fontsource. No backend,
-no accounts, no API keys — the only runtime network use is loading poster images.
+no accounts, no API keys in the bundle — the only runtime network use is loading poster
+images from TMDB's CDN. Movie data comes from the TMDB API at curation time; this product
+uses the TMDB API but is not endorsed or certified by TMDB.
 
 Installable as a PWA (`public/manifest.webmanifest` + icon set). Social link previews use
 `public/og.png`; the `og:` meta tags in `index.html` carry a placeholder domain — swap in
