@@ -18,7 +18,8 @@ export const GENERATED_LISTS: MovieList[] = [
 			{
 				title: "Counterattack",
 				year: 2025,
-				blurb: "When a hostage rescue mission creates a new enemy, Capt",
+				blurb:
+					"When a hostage rescue mission creates a new enemy, Capt. Guerrero and his elite soldiers must face an ambush by a criminal group",
 			},
 			{
 				title: "Ne Zha 2",
@@ -99,7 +100,12 @@ export const GENERATED_LISTS: MovieList[] = [
 				blurb:
 					"The now-reformed Bad Guys are trying (very, very hard) to be good, but instead find themselves hijacked into…",
 			},
-			{ title: "Frankenstein", year: 2025, blurb: "Dr" },
+			{
+				title: "Frankenstein",
+				year: 2025,
+				blurb:
+					"Dr. Victor Frankenstein, a brilliant but egotistical scientist, brings a creature to life in a monstrous…",
+			},
 			{
 				title: "Avatar: Fire and Ash",
 				year: 2025,
