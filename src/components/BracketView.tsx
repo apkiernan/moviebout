@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { Bout, Rounds } from "../bracket";
-import { ROUND_NAMES, champion } from "../bracket";
+import { champion, roundName } from "../bracket";
 import type { Movie } from "../data/movies";
 
 function Slot({ movie, won, lost }: { movie: Movie | null; won: boolean; lost: boolean }) {
@@ -54,7 +54,7 @@ export function BracketView({ rounds, onClose }: Props) {
 				<div className="bv-grid">
 					{rounds.map((bouts, r) => (
 						<div className="bv-col" key={r}>
-							<div className="bv-col__head">{ROUND_NAMES[r]}</div>
+							<div className="bv-col__head">{roundName(rounds, r)}</div>
 							<div className="bv-col__bouts">
 								{bouts.map((bout, i) => (
 									<BoutBox bout={bout} key={i} />

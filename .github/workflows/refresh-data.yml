@@ -1,0 +1,50 @@
+# Re-materializes the TMDB-query-defined lists weekly (ADR 0001) so lineups
+# track TMDB's current ratings without anyone remembering to run the script.
+# The data integrity tests gate the commit: a bad refresh fails here instead
+# of shipping an unplayable list.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   TMDB_API_KEY          — free key from themoviedb.org/settings/api
+#   CLOUDFLARE_API_TOKEN  — token with Workers edit permission, for the deploy
+
+name: Refresh movie data
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # Mondays 09:00 UTC
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/fetch-tmdb.mjs
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+      - run: npm test
+      - name: Commit refreshed data
+        id: commit
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No data changes this week."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -am "Refresh TMDB movie data"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy
+        if: steps.commit.outputs.changed == 'true'
+        run: npm run deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

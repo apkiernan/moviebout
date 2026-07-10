@@ -3,13 +3,16 @@ import { MOVIE_LISTS } from "./data/movies";
 import type { Movie } from "./data/movies";
 import type { Rounds } from "./bracket";
 import {
-	ROUND_NAMES,
-	TOTAL_BOUTS,
 	boutNumber,
 	champion,
 	currentBout,
+	decidedBouts,
 	drawField,
+	isRounds,
 	pickWinner,
+	playableBouts,
+	roundName,
+	roundProgress,
 	seedRounds,
 } from "./bracket";
 import { Marquee } from "./components/Marquee";
@@ -39,7 +42,7 @@ function loadSave(): SavedGame | null {
 		const raw = localStorage.getItem(SAVE_KEY);
 		if (!raw) return null;
 		const parsed = JSON.parse(raw) as SavedGame;
-		if (!parsed.listId || !Array.isArray(parsed.rounds) || parsed.rounds.length !== 4) return null;
+		if (!parsed.listId || !isRounds(parsed.rounds)) return null;
 		return parsed;
 	} catch {
 		return null;
@@ -138,7 +141,9 @@ export default function App() {
 	}
 
 	const cur = rounds ? currentBout(rounds) : null;
-	const decidedCount = rounds ? rounds.flat().filter((b) => b.winner).length : 0;
+	const progress = rounds && cur ? roundProgress(rounds, cur.round, cur.index) : null;
+	const decidedCount = rounds ? decidedBouts(rounds) : 0;
+	const totalCount = rounds ? playableBouts(rounds) : 0;
 	const champ = rounds ? champion(rounds) : null;
 
 	const saveInfo = useMemo(() => {
@@ -146,11 +151,12 @@ export default function App() {
 		const savedList = allLists.find((l) => l.id === save.listId);
 		const savedCur = currentBout(save.rounds);
 		if (!savedList || !savedCur) return null;
+		const progress = roundProgress(save.rounds, savedCur.round, savedCur.index);
 		return {
 			listName: savedList.name,
-			roundName: ROUND_NAMES[savedCur.round],
-			bout: savedCur.index + 1,
-			of: save.rounds[savedCur.round].length,
+			roundName: roundName(save.rounds, savedCur.round),
+			bout: progress.bout,
+			of: progress.of,
 		};
 	}, [allLists, save]);
 
@@ -290,10 +296,10 @@ export default function App() {
 				</main>
 			)}
 
-			{screen === "play" && rounds && cur && (
+			{screen === "play" && rounds && cur && progress && (
 				<main className="play">
 					<p className="eyebrow play__round">
-						{ROUND_NAMES[cur.round]} · Bout {cur.index + 1} of {rounds[cur.round].length}
+						{roundName(rounds, cur.round)} · Bout {progress.bout} of {progress.of}
 					</p>
 					<p className="play__hint">Tap the ticket you’d rather watch</p>
 					<Matchup
@@ -302,8 +308,8 @@ export default function App() {
 						onDecide={decide}
 						inputLocked={showBracket}
 					/>
-					<div className="progress" aria-label={`${decidedCount} of ${TOTAL_BOUTS} bouts decided`}>
-						{Array.from({ length: TOTAL_BOUTS }, (_, i) => (
+					<div className="progress" aria-label={`${decidedCount} of ${totalCount} bouts decided`}>
+						{Array.from({ length: totalCount }, (_, i) => (
 							<span
 								key={i}
 								className={

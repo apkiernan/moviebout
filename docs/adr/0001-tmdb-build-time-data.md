@@ -7,6 +7,12 @@
   lists were retired so every list is grounded in a TMDB chart or discover query rather
   than personal curation. Enrich mode (mode 1) still serves both shapes if a hand-picked
   list ever returns.
+- **Amended 2026-07-09:** the `posters.ts` / `cast.ts` companion files are collapsed into
+  `generated.ts` — the fetch script emits complete movies (poster + cast inline) and every
+  run is a full refresh. With no hand-curated inputs left, the incremental "hand edits are
+  never overwritten" behavior is retired; `generated.ts` is purely derived output. Enrich
+  mode is gone with it — discover/chart results already carry posters, so the script's only
+  per-movie call is `/credits`.
 
 ## Context
 

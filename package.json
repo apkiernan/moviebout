@@ -8,6 +8,7 @@
 		"build": "tsc -b && vite build",
 		"deploy": "npm run build && wrangler deploy",
 		"lint": "oxlint",
+		"test": "vitest run",
 		"fmt": "oxfmt ./ --write",
 		"preview": "vite preview"
 	},
@@ -26,6 +27,7 @@
 		"oxlint": "^1.73.0",
 		"typescript": "~6.0.2",
 		"vite": "^8.1.1",
+		"vitest": "^4.1.10",
 		"wrangler": "^4.108.0"
 	}
 }
