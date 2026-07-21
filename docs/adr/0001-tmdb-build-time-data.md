@@ -13,6 +13,22 @@
   never overwritten" behavior is retired; `generated.ts` is purely derived output. Enrich
   mode is gone with it — discover/chart results already carry posters, so the script's only
   per-movie call is `/credits`.
+- **Amended 2026-07-10 (SvelteKit rewrite):** "build time" is now literal — the fetch
+  script and committed `generated.ts` are replaced by a server-only module
+  (`src/lib/server/tmdb.ts`) invoked from a prerendered layout `load`, so `vite build`
+  fetches the lists and bakes them into the pages. The weekly refresh became a plain
+  rebuild-and-deploy; `assertPlayableLists` fails the build (instead of tests failing a
+  commit) on a bad refresh. The runtime contract is unchanged: static pages, no key in
+  the client bundle.
+- **Amended by:** [ADR 0003](0003-shareable-bracket-urls.md) — share links render at
+  request time, reading the baked `/lists.json` asset; still no TMDB access or key at
+  runtime. Movies now keep their TMDB id, and `assertPlayableLists` requires it.
+- **Amended 2026-07-14:** rated-best lists are ranked by a Bayesian weighted rating
+  (`sort_by: "weighted_rating.desc"`, computed in `$lib/server/rank.ts` over a merged
+  by-rating + by-vote-count candidate pool) instead of raw `vote_average`, which let
+  niche low-vote films outrank widely seen ones. Genre lists also gained a 1980 release
+  floor; a query-defined "classics" list houses the older canon. Lists stay fully
+  query-grounded — the formula is deterministic, not editorial.
 
 ## Context
 

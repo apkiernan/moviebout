@@ -6,72 +6,82 @@ March Madness style — until one movie is left. That's what you're watching.
 ## Run it
 
 ```sh
+echo 'TMDB_API_KEY=...' > .env   # free key from themoviedb.org/settings/api
 npm install
 npm run dev
 ```
 
-Then open the printed localhost URL. `npm run build` produces a static site in `dist/` that can
-be dropped on any static host. `npm test` runs the vitest suite covering the bracket logic,
-the custom-card parser, and the integrity of the generated movie data.
+Then open the printed localhost URL. The movie lists come from the TMDB API when the site
+builds, so dev needs the key too (either the v3 key or the v4 read access token works). The
+first dev-server run fetches everything once and caches it at `.svelte-kit/tmdb-dev-cache.json`
+— delete that file to force a refresh.
+
+`npm test` runs the vitest suite covering the bracket logic, the custom-card parser, the
+list validation, and a server-side render of the home page. `npm run check` type-checks
+with svelte-check, and `npm run build` prerenders the whole site for Cloudflare Workers
+(`npm run deploy` builds and ships it with wrangler).
 
 ## How it plays
 
-1. **Home** — choose a lineup from the dropdown (Best of All Time, genres, '90s, feel-good…),
-   or build your own card: paste in 16+ movies, one per line, and draw from those instead
-   (saved to `localStorage`).
-2. **The Field of 16** — 16 movies drawn at random; shuffle again if the draw looks weak.
-3. **Bouts** — each matchup shows two ticket stubs. Tap the one you'd rather watch
-   (or use ← / → arrow keys). Can't agree? Flip the coin.
-4. **Champion** — the winner goes up on the marquee. Share the result (native share sheet,
-   or copied to the clipboard), jump to JustWatch to see where it's streaming, see the full
-   bracket, undo the final, run it back with a fresh draw, or pick a new lineup.
+1. **Home** (`/`) — choose a lineup from the dropdown (Best of All Time, genres, '90s,
+   feel-good…), or build your own card at `/builder`: paste in 16+ movies, one per line,
+   and draw from those instead (saved to `localStorage`).
+2. **The Field of 16** (`/field`) — 16 movies drawn at random; shuffle again if the draw
+   looks weak.
+3. **Bouts** (`/play`) — each matchup shows two ticket stubs. Tap the one you'd rather
+   watch (or use ← / → arrow keys). Can't agree? Flip the coin.
+4. **Champion** (`/champion`) — the winner goes up on the marquee. Share the result
+   (native share sheet, or copied to the clipboard), jump to JustWatch to see where it's
+   streaming, see the full bracket, undo the final, run it back with a fresh draw, or pick
+   a new lineup.
 
-Progress is saved to `localStorage`, so an in-progress bracket survives a page refresh and can
-be resumed from the home screen.
+Progress is saved to `localStorage`, so an in-progress bracket survives a page refresh —
+reloading `/play` picks up where you left off, and the home screen offers a resume.
 
 ## Editing the movie lists
 
 Every lineup is _query-defined_: described in
-[`scripts/tmdb-lists.config.mjs`](scripts/tmdb-lists.config.mjs) as a TMDB query (`discover`
-params or a chart like `top_rated`, plus a `limit`) and materialized into
-[`src/data/generated.ts`](src/data/generated.ts) by the fetch script — no hand-picked
-lineups. Each list needs an `id`, `name`, `tagline`, and a query that yields at least 16
-movies (the app draws 16 per bracket). Add an entry, re-run the script, and the list
-appears in the dropdown; re-running also refreshes existing lists against TMDB's current
-ratings, so lists are only as fresh as the last run + deploy.
+[`src/lib/server/lists.config.ts`](src/lib/server/lists.config.ts) as a TMDB query
+(`discover` params or a chart like `top_rated`, plus a `limit`) — no hand-picked lineups.
+Each list needs an `id`, `name`, `tagline`, and a query that yields at least 16 movies
+(the app draws 16 per bracket). Add an entry and the list appears in the dropdown on the
+next build.
 
-Posters and top-billed cast come from TMDB at the same time
-([ADR 0001](docs/adr/0001-tmdb-build-time-data.md)) and land inline on each movie in
-`generated.ts` — one file, complete movies. After changing the config, run
-
-```sh
-TMDB_API_KEY=... node scripts/fetch-tmdb.mjs
-```
-
-with a free key from [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api)
-(either the v3 key or the v4 read access token works). For local development, drop the key
-in a `.env` file at the repo root instead (gitignored):
-
-```sh
-echo 'TMDB_API_KEY=...' > .env
-node scripts/fetch-tmdb.mjs
-```
-
-Every run is a full refresh: `generated.ts` is purely derived output, so hand edits to it
-don't survive a re-run. A movie without a poster or cast still works; the ticket just
-falls back to text.
+The queries are materialized by [`src/lib/server/tmdb.ts`](src/lib/server/tmdb.ts) while
+the site builds ([ADR 0001](docs/adr/0001-tmdb-build-time-data.md)): the whole app is
+prerendered, so the layout's server `load` runs at build time, fetches every list with
+posters and top-billed cast inline, and bakes complete movies into the pages. Every build
+is a full refresh against TMDB's current ratings, and `assertPlayableLists` fails the
+build rather than shipping an unplayable list. A movie without a poster or cast still
+works; the ticket falls back to text.
 
 ## Stack
 
-Vite + React + TypeScript. Fonts (Anton, Archivo) are bundled via Fontsource. No backend,
-no accounts, no API keys in the bundle — the only runtime network use is loading poster
-images from TMDB's CDN. Movie data comes from the TMDB API at curation time; this product
-uses the TMDB API but is not endorsed or certified by TMDB.
+SvelteKit + Svelte 5 (runes) + TypeScript, deployed to Cloudflare Workers with
+`@sveltejs/adapter-cloudflare`. Fonts (Anton, Archivo) are bundled via Fontsource. No
+backend, no accounts, no API keys in the client bundle — TMDB is only called at build
+time, and the deployed site's only runtime network use is loading poster images from
+TMDB's CDN. This product uses the TMDB API but is not endorsed or certified by TMDB.
 
-Installable as a PWA (`public/manifest.webmanifest` + icon set). Social link previews use
-`public/og.png`; the `og:` meta tags in `index.html` carry a placeholder domain — swap in
-the real one before deploy.
+Game state lives in a runes-based store ([`src/lib/game.svelte.ts`](src/lib/game.svelte.ts))
+shared across the routes; the bracket itself is pure logic in
+[`src/lib/bracket.ts`](src/lib/bracket.ts).
 
-CI (GitHub Actions) lints, tests, and builds every push. A weekly workflow re-runs the
-TMDB fetch, commits the refreshed data, and deploys — it needs the `TMDB_API_KEY` and
-`CLOUDFLARE_API_TOKEN` repository secrets (see `.github/workflows/refresh-data.yml`).
+Installable as a PWA (`static/manifest.webmanifest` + icon set). Social link previews use
+`static/og.png`; the `og:` meta tags in `src/app.html` carry a placeholder domain — swap
+in the real one before deploy.
+
+CI (GitHub Actions) lints, type-checks, tests, and builds every push and PR, and every
+push to `main` that passes those checks deploys to Cloudflare Workers automatically
+(`.github/workflows/ci.yml`). A weekly workflow redeploys on a schedule so the lineups
+track TMDB's current ratings (`.github/workflows/refresh-data.yml`).
+
+Both need two repository secrets (Settings → Secrets and variables → Actions):
+
+- `TMDB_API_KEY` — free key from [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api);
+  the build fetches all movie data from TMDB.
+- `CLOUDFLARE_API_TOKEN` — create at dash.cloudflare.com → My Profile → API Tokens using
+  the **Edit Cloudflare Workers** template (covers the Workers-script upload and the
+  custom-domain routes in `wrangler.jsonc`). If the token can see more than one Cloudflare
+  account, also add a `CLOUDFLARE_ACCOUNT_ID` secret and pass it the same way, or wrangler
+  can't pick an account non-interactively.

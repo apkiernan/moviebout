@@ -2,6 +2,7 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "flickmadness",
 	"compatibility_date": "2026-07-07",
+	"compatibility_flags": ["nodejs_compat"],
 	// Custom domains: Cloudflare provisions the DNS records and certs for
 	// these on deploy — never add A/CNAME records for them by hand.
 	"routes": [
@@ -10,10 +11,14 @@
 		{ "pattern": "moviebout.com", "custom_domain": true },
 		{ "pattern": "www.moviebout.com", "custom_domain": true },
 	],
-	// Assets-only Worker: no `main` script until the draft-rooms backend
-	// (Durable Objects) lands — then add `main` and a DO binding here.
+	// @sveltejs/adapter-cloudflare output: every route is prerendered except
+	// /share/[code] (ADR 0003), which the worker renders at request time from
+	// the baked /lists.json asset — no TMDB access at runtime. It's also the
+	// hook for the draft-rooms backend — a Durable Object binding slots in
+	// here when that lands.
+	"main": ".svelte-kit/cloudflare/_worker.js",
 	"assets": {
-		"directory": "./dist",
-		"not_found_handling": "single-page-application",
+		"directory": ".svelte-kit/cloudflare",
+		"binding": "ASSETS",
 	},
 }

@@ -4,9 +4,11 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "vite",
-		"build": "tsc -b && vite build",
+		"dev": "vite dev",
+		"build": "vite build",
 		"deploy": "npm run build && wrangler deploy",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"lint": "oxlint",
 		"test": "vitest run",
 		"fmt": "oxfmt ./ --write",
@@ -14,18 +16,18 @@
 	},
 	"dependencies": {
 		"@fontsource/anton": "^5.2.7",
-		"@fontsource/archivo": "^5.2.8",
-		"react": "^19.2.7",
-		"react-dom": "^19.2.7"
+		"@fontsource/archivo": "^5.2.8"
 	},
 	"devDependencies": {
+		"@sveltejs/adapter-cloudflare": "^7.2.9",
+		"@sveltejs/kit": "^2.63.0",
+		"@sveltejs/vite-plugin-svelte": "^7.1.2",
 		"@types/node": "^24.13.2",
-		"@types/react": "^19.2.17",
-		"@types/react-dom": "^19.2.3",
-		"@vitejs/plugin-react": "^6.0.3",
 		"oxfmt": "^0.57.0",
 		"oxlint": "^1.73.0",
-		"typescript": "~6.0.2",
+		"svelte": "^5.56.1",
+		"svelte-check": "^4.6.0",
+		"typescript": "^6.0.3",
 		"vite": "^8.1.1",
 		"vitest": "^4.1.10",
 		"wrangler": "^4.108.0"
