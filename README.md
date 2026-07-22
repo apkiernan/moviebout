@@ -1,4 +1,4 @@
-# What to Watch
+# Moviebout
 
 The date-night bracket for movies and TV shows. Pick a lineup, draw 16 random titles, and
 vote head-to-head — March Madness style — until one is left. That's what you're watching.

@@ -1,6 +1,6 @@
 {
-	"name": "What to Watch — The Date-Night Movie Bracket",
-	"short_name": "What to Watch",
+	"name": "Moviebout — The Date-Night Movie Bracket",
+	"short_name": "Moviebout",
 	"description": "Sixteen movies enter. One leaves — on your TV.",
 	"start_url": "/",
 	"display": "standalone",

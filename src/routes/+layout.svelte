@@ -23,7 +23,7 @@
 <div class="app">
 	{#if !onHome}
 		<header class="topbar">
-			<button type="button" class="brand" onclick={goHome}>What to Watch</button>
+			<button type="button" class="brand" onclick={goHome}>Moviebout</button>
 			{#if onPlay && game.rounds}
 				<div class="topbar__actions">
 					<button

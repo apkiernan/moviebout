@@ -54,7 +54,7 @@
 <main class="home">
 	<Marquee big>
 		<p class="eyebrow">Date night · Main event</p>
-		<h1 class="display home__title">What to Watch</h1>
+		<h1 class="display home__title">Moviebout</h1>
 		<p class="home__sub">Sixteen contenders enter. One leaves — on your TV.</p>
 	</Marquee>
 

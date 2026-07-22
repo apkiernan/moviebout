@@ -24,10 +24,10 @@
 </script>
 
 <svelte:head>
-	<title>{shareTitle} — What to Watch</title>
+	<title>{shareTitle} — Moviebout</title>
 	<meta name="description" content={shareDescription} />
 	<meta property="og:type" content="website" />
-	<meta property="og:site_name" content="What to Watch" />
+	<meta property="og:site_name" content="Moviebout" />
 	<meta property="og:title" content={shareTitle} />
 	<meta property="og:description" content={shareDescription} />
 	<meta property="og:url" content={page.url.href} />
