@@ -13,7 +13,13 @@ import {
 	seedRounds,
 	type Rounds,
 } from "./bracket";
-import { CUSTOM_LIST_ID, customList, loadCustomMovies, MIN_CARD_SIZE, saveCustomMovies } from "./customCard";
+import {
+	CUSTOM_LIST_ID,
+	customList,
+	loadCustomMovies,
+	MIN_CARD_SIZE,
+	saveCustomMovies,
+} from "./customCard";
 import type { Movie, MovieList } from "./movies";
 
 const SAVE_KEY = "whattowatch-bracket-v1";

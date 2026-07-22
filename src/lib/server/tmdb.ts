@@ -1,8 +1,14 @@
 // Materializes the query-defined lists (ADR 0001) from the TMDB API. This is
 // server-only code that runs while the site builds: every route is
 // prerendered, so `fetchMovieLists` executes at `vite build` time and the
-// finished pages ship with complete movies — title, year, blurb, poster, and
+// finished pages ship with complete titles — name, year, blurb, poster, and
 // top-billed cast — baked in. No TMDB key or call ever reaches the client.
+//
+// Movie and TV lists (ADR 0004) come from the same API under different paths
+// and field names; everything TV-specific is normalized here into the one
+// `Movie` shape (`name` → title, `first_air_date` → year, aggregate credits
+// → cast), so nothing downstream branches on media except where TMDB ids —
+// which movie and TV mint independently — are used as keys.
 //
 // The key comes from TMDB_API_KEY (environment or .env at the repo root);
 // either a v3 API key or a v4 read access token works, free at
@@ -14,33 +20,46 @@
 // works; the ticket falls back to text.
 
 import { TMDB_API_KEY } from "$env/static/private";
-import { assertPlayableLists, type Movie, type MovieList } from "$lib/movies";
+import {
+	assertPlayableLists,
+	mediaOf,
+	type MediaType,
+	type Movie,
+	type MovieList,
+} from "$lib/movies";
 import { LIST_DEFS, type ListDef } from "./lists.config";
-import { weightedRating } from "./rank";
+import { PRIOR_VOTES, weightedRating } from "./rank";
 
 const TMDB_IMG = "https://image.tmdb.org/t/p/w500";
 const DELAY_MS = 25;
 
-// In dev, refetching ~500 movies on every server restart would make the first
+// In dev, refetching ~500 titles on every server restart would make the first
 // page load crawl, so responses land in a cache file under .svelte-kit
 // (delete it to force a refresh). The branch is compiled out of production
 // builds — `vite build` always fetches fresh. The version suffix busts caches
-// written before a shape change (v2: movies carry TMDB ids).
-const DEV_CACHE = ".svelte-kit/tmdb-dev-cache-v2.json";
+// written before a shape change (v3: TV lists, movies carry `media`).
+const DEV_CACHE = ".svelte-kit/tmdb-dev-cache-v3.json";
 
 const isV4Token = TMDB_API_KEY.startsWith("eyJ");
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-interface TmdbMovieResult {
+// One result row from /discover, /movie/* or /tv/* charts. Movies carry
+// title/release_date, TV carries name/first_air_date; titleOf/dateOf unify.
+interface TmdbResult {
 	id: number;
 	title?: string;
+	name?: string;
 	release_date?: string;
+	first_air_date?: string;
 	overview?: string;
 	poster_path?: string | null;
 	vote_average?: number;
 	vote_count?: number;
 }
+
+const titleOf = (r: TmdbResult) => r.title ?? r.name;
+const dateOf = (r: TmdbResult) => r.release_date ?? r.first_air_date;
 
 async function tmdb(
 	path: string,
@@ -80,21 +99,25 @@ function blurbFrom(overview = ""): string {
 	return first.replace(/\.$/, "");
 }
 
-let genresByName: Map<string, number> | undefined;
-async function resolveGenres(value: string | number): Promise<string | number> {
+// Movies and TV have separate genre taxonomies (and separate ids for shared
+// names like "animation"), so each media type gets its own name → id map.
+const genreMaps = new Map<MediaType, Map<string, number>>();
+async function resolveGenres(media: MediaType, value: string | number): Promise<string | number> {
 	if (/^[\d,|]+$/.test(String(value))) return value;
-	genresByName ??= new Map(
-		(await tmdb("/genre/movie/list")).genres.map((g: { name: string; id: number }) => [
-			g.name.toLowerCase(),
-			g.id,
-		]),
-	);
+	let byName = genreMaps.get(media);
+	if (!byName) {
+		byName = new Map(
+			(await tmdb(`/genre/${media}/list`)).genres.map((g: { name: string; id: number }) => [
+				g.name.toLowerCase(),
+				g.id,
+			]),
+		);
+		genreMaps.set(media, byName);
+	}
 	return String(value)
 		.split(/([|,])/)
 		.map((part) =>
-			part === "," || part === "|"
-				? part
-				: String(genresByName!.get(part.trim().toLowerCase()) ?? part),
+			part === "," || part === "|" ? part : String(byName.get(part.trim().toLowerCase()) ?? part),
 		)
 		.join("");
 }
@@ -107,13 +130,11 @@ async function fetchPages(
 	path: string,
 	params: Record<string, string | number | boolean>,
 	wanted: number,
-): Promise<TmdbMovieResult[]> {
-	const results: TmdbMovieResult[] = [];
+): Promise<TmdbResult[]> {
+	const results: TmdbResult[] = [];
 	for (let page = 1; results.length < wanted && page <= 10; page++) {
 		const body = await tmdb(path, { ...params, page });
-		results.push(
-			...(body.results ?? []).filter((r: TmdbMovieResult) => r.release_date && r.title),
-		);
+		results.push(...(body.results ?? []).filter((r: TmdbResult) => dateOf(r) && titleOf(r)));
 		if (page >= body.total_pages) break;
 		await sleep(DELAY_MS);
 	}
@@ -121,45 +142,56 @@ async function fetchPages(
 }
 
 async function generateList(def: ListDef): Promise<FetchedList> {
+	const media = def.media ?? "movie";
 	const limit = def.limit ?? 24;
 	const params = { ...def.discover };
-	if (params.with_genres) params.with_genres = await resolveGenres(params.with_genres);
+	if (params.with_genres) params.with_genres = await resolveGenres(media, params.with_genres);
+	if (params.without_genres) {
+		params.without_genres = await resolveGenres(media, params.without_genres);
+	}
 	const discoverParams = { include_adult: false, "vote_count.gte": 50, ...params };
 
-	let results: TmdbMovieResult[];
+	let results: TmdbResult[];
 	if (def.chart) {
-		results = await fetchPages(`/movie/${def.chart}`, {}, limit);
+		results = await fetchPages(`/${media}/${def.chart}`, {}, limit);
 	} else if (params.sort_by === "weighted_rating.desc") {
 		// TMDB can't sort by the weighted rating, so fetch a candidate pool and
 		// rank it here. Two complementary sorts feed the pool: by-rating catches
-		// acclaimed films the vote-count cutoff would miss, by-votes catches
-		// famous films whose raw rating sits below the rating cutoff. Merged,
+		// acclaimed titles the vote-count cutoff would miss, by-votes catches
+		// famous titles whose raw rating sits below the rating cutoff. Merged,
 		// the weighted rating arbitrates.
 		const wanted = limit * 2;
 		const acclaimed = await fetchPages(
-			"/discover/movie",
+			`/discover/${media}`,
 			{ ...discoverParams, sort_by: "vote_average.desc" },
 			wanted,
 		);
 		const famous = await fetchPages(
-			"/discover/movie",
+			`/discover/${media}`,
 			{ ...discoverParams, sort_by: "vote_count.desc" },
 			wanted,
 		);
 		const pool = new Map([...acclaimed, ...famous].map((r) => [r.id, r]));
-		results = [...pool.values()].sort((a, b) => weightedRating(b) - weightedRating(a));
+		const prior = PRIOR_VOTES[media];
+		results = [...pool.values()].sort(
+			(a, b) => weightedRating(b, prior) - weightedRating(a, prior),
+		);
 	} else {
-		results = await fetchPages("/discover/movie", discoverParams, limit);
+		results = await fetchPages(`/discover/${media}`, discoverParams, limit);
 	}
 
+	// `media` is only written for TV, keeping "absent means movie" true in the
+	// baked data and old movie payloads byte-identical.
+	const mediaTag = media === "tv" ? { media } : undefined;
 	const movies = results.slice(0, limit).map((r) => ({
 		id: r.id,
-		title: r.title!,
-		year: Number(r.release_date!.slice(0, 4)),
+		...mediaTag,
+		title: titleOf(r)!,
+		year: Number(dateOf(r)!.slice(0, 4)),
 		blurb: blurbFrom(r.overview),
 		poster: r.poster_path ? `${TMDB_IMG}${r.poster_path}` : undefined,
 	}));
-	return { id: def.id, name: def.name, tagline: def.tagline, movies };
+	return { id: def.id, ...mediaTag, name: def.name, tagline: def.tagline, movies };
 }
 
 async function fetchAllLists(): Promise<MovieList[]> {
@@ -171,20 +203,29 @@ async function fetchAllLists(): Promise<MovieList[]> {
 		console.log(`  ${list.id}: ${list.movies.length} movies`);
 	}
 
-	// The same movie can appear in several lists — fetch its cast once.
-	const byId = new Map<number, FetchedMovie[]>();
+	// The same title can appear in several lists — fetch its cast once. Keyed
+	// by media AND id: TMDB movie and TV ids are separate namespaces, so a
+	// bare id could alias a movie with an unrelated show.
+	const byId = new Map<string, FetchedMovie[]>();
 	for (const list of lists) {
 		for (const mv of list.movies) {
-			if (!byId.has(mv.id)) byId.set(mv.id, []);
-			byId.get(mv.id)!.push(mv);
+			const key = `${mediaOf(mv)}:${mv.id}`;
+			if (!byId.has(key)) byId.set(key, []);
+			byId.get(key)!.push(mv);
 		}
 	}
 
-	console.log(`Fetching cast for ${byId.size} unique movies...`);
+	console.log(`Fetching cast for ${byId.size} unique titles...`);
 	let done = 0;
 	for (const copies of byId.values()) {
 		done++;
-		const credits = await tmdb(`/movie/${copies[0].id}/credits`);
+		// aggregate_credits sums a show's roles across seasons, so long-running
+		// shows bill their actual leads instead of the latest season's.
+		const creditsPath =
+			mediaOf(copies[0]) === "tv"
+				? `/tv/${copies[0].id}/aggregate_credits`
+				: `/movie/${copies[0].id}/credits`;
+		const credits = await tmdb(creditsPath);
 		const cast = (credits.cast ?? []).slice(0, 3).map((c: { name: string }) => c.name);
 		for (const mv of copies) mv.cast = cast;
 		if (done % 100 === 0) console.log(`  [${done}/${byId.size}]`);
@@ -193,7 +234,7 @@ async function fetchAllLists(): Promise<MovieList[]> {
 
 	const all = lists.flatMap((l) => l.movies);
 	const noPosterOrCast = all.filter((mv) => !mv.poster || !mv.cast?.length);
-	console.log(`Done. ${lists.length} lists, ${byId.size} unique movies.`);
+	console.log(`Done. ${lists.length} lists, ${byId.size} unique titles.`);
 	for (const mv of noPosterOrCast) console.log(`  missing poster/cast: ${mv.title}|${mv.year}`);
 	return lists;
 }

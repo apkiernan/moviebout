@@ -3,15 +3,25 @@
 // byes included — is fully determined by the field size (seedRounds is
 // deterministic), so decoding is a replay: seed the field, apply the picks.
 //
-// Baked movies travel as TMDB ids, which stay valid across weekly data
+// Baked titles travel as TMDB ids, which stay valid across weekly data
 // refreshes; the champion additionally carries its title/year inline so the
-// share headline renders even after its movie rotates out of the baked
+// share headline renders even after its title rotates out of the baked
 // lists. Custom-card movies have no id and travel entirely inline.
+//
+// TMDB movie and TV ids are separate namespaces, so a ref's flags carry a TV
+// bit (ADR 0004) and ids resolve within their own media. Still VERSION 1:
+// pre-TV tokens never set the bit and decode unchanged, while a pre-TV
+// decoder rejects TV-bearing tokens as malformed rather than misresolving.
 
 import { champion, currentBout, isBye, pickWinner, seedRounds, type Rounds } from "./bracket";
-import type { Movie, MovieList } from "./movies";
+import { mediaOf, type MediaType, type Movie, type MovieList } from "./movies";
 
 const VERSION = 1;
+
+// Per-ref flag bits.
+const HAS_ID = 1;
+const INLINE = 2;
+const IS_TV = 4;
 
 // Decode bounds: tokens come from the wild, so cap every length before
 // trusting it. Real tokens are nowhere near these.
@@ -19,9 +29,11 @@ const MAX_FIELD = 128;
 const MAX_LIST_ID = 64;
 const MAX_TITLE = 512;
 
-/** A field movie as it travels in the token. */
+/** A field title as it travels in the token. */
 export interface ShareRef {
 	id?: number;
+	/** Absent means "movie", as on Movie. */
+	media?: MediaType;
 	title?: string;
 	year?: number;
 }
@@ -106,9 +118,9 @@ function fromBase64Url(token: string): Uint8Array | null {
 	}
 }
 
-/** The share key of a movie: TMDB id when it has one, title|year otherwise. */
+/** The share key of a title: media-scoped TMDB id when it has one, title|year otherwise. */
 function movieKey(movie: Movie): string {
-	return movie.id ? `#${movie.id}` : `${movie.title}|${movie.year}`;
+	return movie.id ? `${mediaOf(movie)}#${movie.id}` : `${movie.title}|${movie.year}`;
 }
 
 /** Encodes a finished bracket as a URL-safe token. Throws on an unfinished one. */
@@ -142,7 +154,9 @@ export function encodeShare(listId: string, rounds: Rounds): string {
 	field.forEach((movie, i) => {
 		const hasId = (movie.id ?? 0) > 0;
 		const inline = i === champIndex || !hasId;
-		bytes.push((hasId ? 1 : 0) | (inline ? 2 : 0));
+		bytes.push(
+			(hasId ? HAS_ID : 0) | (inline ? INLINE : 0) | (mediaOf(movie) === "tv" ? IS_TV : 0),
+		);
 		if (hasId) pushVarint(bytes, movie.id!);
 		if (inline) {
 			pushVarint(bytes, movie.year);
@@ -172,10 +186,12 @@ export function decodeShare(token: string): DecodedShare | null {
 		const refs: ShareRef[] = [];
 		for (let i = 0; i < n; i++) {
 			const flags = r.u8();
-			if (flags === 0 || flags > 3) return null;
+			// A ref must carry an id, inline data, or both; the TV bit alone is nothing.
+			if ((flags & (HAS_ID | INLINE)) === 0 || flags > (HAS_ID | INLINE | IS_TV)) return null;
 			const ref: ShareRef = {};
-			if (flags & 1) ref.id = r.varint();
-			if (flags & 2) {
+			if (flags & IS_TV) ref.media = "tv";
+			if (flags & HAS_ID) ref.id = r.varint();
+			if (flags & INLINE) {
 				ref.year = r.varint();
 				ref.title = r.string(MAX_TITLE);
 			}
@@ -204,17 +220,25 @@ export function decodeShare(token: string): DecodedShare | null {
 export function resolveShare(decoded: DecodedShare, lists: MovieList[]): SharedBracket | null {
 	if (decoded.refs.length < 2) return null;
 
-	const byId = new Map<number, Movie>();
+	// Media-scoped keys: a TV ref must never resolve to a movie that happens
+	// to share the same TMDB id (the namespaces are independent).
+	const byId = new Map<string, Movie>();
 	for (const list of lists) {
 		for (const movie of list.movies) {
-			if (movie.id) byId.set(movie.id, movie);
+			if (movie.id) byId.set(`${mediaOf(movie)}:${movie.id}`, movie);
 		}
 	}
 
 	const field = decoded.refs.map((ref): Movie => {
-		const baked = ref.id ? byId.get(ref.id) : undefined;
+		const baked = ref.id ? byId.get(`${mediaOf(ref)}:${ref.id}`) : undefined;
 		if (baked) return baked;
-		return { id: ref.id, title: ref.title ?? "—", year: ref.year ?? 0, blurb: "" };
+		return {
+			id: ref.id,
+			media: ref.media,
+			title: ref.title ?? "—",
+			year: ref.year ?? 0,
+			blurb: "",
+		};
 	});
 
 	let rounds = seedRounds(field);

@@ -1,7 +1,16 @@
+export type MediaType = "movie" | "tv";
+
 export interface Movie {
-	/** TMDB id — stable across data refreshes. Absent on hand-typed custom movies. */
+	/**
+	 * TMDB id — stable across data refreshes. Absent on hand-typed custom
+	 * movies. Movie and TV ids are separate TMDB namespaces, so an id only
+	 * identifies a title together with its media type.
+	 */
 	id?: number;
+	/** Absent means "movie" — the shape predates TV, and saves/custom cards omit it. */
+	media?: MediaType;
 	title: string;
+	/** Release year; for TV, the first-air year. */
 	year: number;
 	blurb: string;
 	poster?: string;
@@ -10,9 +19,15 @@ export interface Movie {
 
 export interface MovieList {
 	id: string;
+	/** Absent means "movie", as on Movie. */
+	media?: MediaType;
 	name: string;
 	tagline: string;
 	movies: Movie[];
+}
+
+export function mediaOf(item: { media?: MediaType }): MediaType {
+	return item.media ?? "movie";
 }
 
 /**

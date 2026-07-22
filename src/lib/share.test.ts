@@ -7,6 +7,12 @@ function mv(i: number): Movie {
 	return { id: 100000 + i, title: `Movie ${i}`, year: 1990 + i, blurb: `Blurb ${i}` };
 }
 
+// Deliberately the same numeric ids as mv(): TMDB movie and TV ids are
+// separate namespaces, so collisions like this are real and must not alias.
+function tvShow(i: number): Movie {
+	return { id: 100000 + i, media: "tv", title: `Show ${i}`, year: 2005 + i, blurb: `Blurb ${i}` };
+}
+
 function customMv(i: number): Movie {
 	return { title: `Hand-Picked ${i}`, year: 2000 + i, blurb: "" };
 }
@@ -90,6 +96,49 @@ describe("round-trip", () => {
 	});
 });
 
+describe("TV shows in the field", () => {
+	function tvLists(movies: Movie[]): MovieList[] {
+		return [{ id: "tv-list", media: "tv", name: "TV List", tagline: "For testing", movies }];
+	}
+
+	it("round-trips a TV field with media intact", () => {
+		const source = field(16, tvShow);
+		const rounds = playThrough(seedRounds(source));
+		const shared = resolveShare(decodeShare(encodeShare("tv-list", rounds))!, tvLists(source));
+		expect(shared!.field.map((m) => m.title)).toEqual(source.map((m) => m.title));
+		expect(shared!.field.every((m) => m.media === "tv")).toBe(true);
+		expect(shared!.champion.title).toBe(champion(rounds)!.title);
+	});
+
+	it("resolves each medium against its own id namespace when ids collide", () => {
+		const shows = field(16, tvShow);
+		const decoys = field(16); // movies with the same numeric ids
+		const both: MovieList[] = [
+			{ id: "movies", name: "Movies", tagline: "For testing", movies: decoys },
+			{ id: "shows", media: "tv", name: "Shows", tagline: "For testing", movies: shows },
+		];
+
+		const tvRounds = playThrough(seedRounds(shows));
+		const tvShared = resolveShare(decodeShare(encodeShare("shows", tvRounds))!, both);
+		expect(tvShared!.field.map((m) => m.title)).toEqual(shows.map((m) => m.title));
+
+		const mvRounds = playThrough(seedRounds(decoys));
+		const mvShared = resolveShare(decodeShare(encodeShare("movies", mvRounds))!, both);
+		expect(mvShared!.field.map((m) => m.title)).toEqual(decoys.map((m) => m.title));
+	});
+
+	it("keeps a rotated-out TV champion renderable and typed", () => {
+		const source = field(16, tvShow);
+		const rounds = playThrough(seedRounds(source));
+		const champ = champion(rounds)!;
+		const rotated = tvLists(source.filter((m) => m.id !== champ.id));
+
+		const shared = resolveShare(decodeShare(encodeShare("tv-list", rounds))!, rotated);
+		expect(shared!.champion.title).toBe(champ.title);
+		expect(shared!.champion.media).toBe("tv");
+	});
+});
+
 describe("data-refresh drift", () => {
 	it("keeps the champion renderable after its movie rotates out of the lists", () => {
 		const source = field(16);
@@ -135,5 +184,18 @@ describe("decodeShare on hostile input", () => {
 		const token = encodeShare("test-list", rounds);
 		// Flip the version byte (first byte → first two base64 chars).
 		expect(decodeShare(`z${token.slice(1)}`)).toBeNull();
+	});
+
+	it("rejects a ref whose flags carry no payload bits", () => {
+		// Hand-built token: version 1, list id "x", field of 2, then a flags
+		// byte that is TV-only (4) or out of range (8) — both malformed.
+		for (const flags of [4, 8]) {
+			const bytes = Uint8Array.from([1, 1, 120, 2, flags]);
+			const token = btoa(String.fromCharCode(...bytes))
+				.replaceAll("+", "-")
+				.replaceAll("/", "_")
+				.replace(/=+$/, "");
+			expect(decodeShare(token)).toBeNull();
+		}
 	});
 });

@@ -1,7 +1,7 @@
 # What to Watch
 
-The date-night movie bracket. Pick a lineup, draw 16 random movies, and vote head-to-head —
-March Madness style — until one movie is left. That's what you're watching.
+The date-night bracket for movies and TV shows. Pick a lineup, draw 16 random titles, and
+vote head-to-head — March Madness style — until one is left. That's what you're watching.
 
 ## Run it
 
@@ -11,10 +11,10 @@ npm install
 npm run dev
 ```
 
-Then open the printed localhost URL. The movie lists come from the TMDB API when the site
-builds, so dev needs the key too (either the v3 key or the v4 read access token works). The
-first dev-server run fetches everything once and caches it at `.svelte-kit/tmdb-dev-cache.json`
-— delete that file to force a refresh.
+Then open the printed localhost URL. The movie and TV lists come from the TMDB API when the
+site builds, so dev needs the key too (either the v3 key or the v4 read access token works).
+The first dev-server run fetches everything once and caches it at
+`.svelte-kit/tmdb-dev-cache-v3.json` — delete that file to force a refresh.
 
 `npm test` runs the vitest suite covering the bracket logic, the custom-card parser, the
 list validation, and a server-side render of the home page. `npm run check` type-checks
@@ -23,10 +23,11 @@ with svelte-check, and `npm run build` prerenders the whole site for Cloudflare 
 
 ## How it plays
 
-1. **Home** (`/`) — choose a lineup from the dropdown (Best of All Time, genres, '90s,
-   feel-good…), or build your own card at `/builder`: paste in 16+ movies, one per line,
-   and draw from those instead (saved to `localStorage`).
-2. **The Field of 16** (`/field`) — 16 movies drawn at random; shuffle again if the draw
+1. **Home** (`/`) — choose a lineup from the dropdown: movie cards (Best of All Time,
+   genres, '90s, feel-good…) or TV cards (Best TV of All Time, Limited Series, genres…).
+   Or build your own card at `/builder`: paste in 16+ movies or shows, one per line, and
+   draw from those instead (saved to `localStorage`).
+2. **The Field of 16** (`/field`) — 16 titles drawn at random; shuffle again if the draw
    looks weak.
 3. **Bouts** (`/play`) — each matchup shows two ticket stubs. Tap the one you'd rather
    watch (or use ← / → arrow keys). Can't agree? Flip the coin.
@@ -38,21 +39,23 @@ with svelte-check, and `npm run build` prerenders the whole site for Cloudflare 
 Progress is saved to `localStorage`, so an in-progress bracket survives a page refresh —
 reloading `/play` picks up where you left off, and the home screen offers a resume.
 
-## Editing the movie lists
+## Editing the lists
 
 Every lineup is _query-defined_: described in
 [`src/lib/server/lists.config.ts`](src/lib/server/lists.config.ts) as a TMDB query
 (`discover` params or a chart like `top_rated`, plus a `limit`) — no hand-picked lineups.
-Each list needs an `id`, `name`, `tagline`, and a query that yields at least 16 movies
-(the app draws 16 per bracket). Add an entry and the list appears in the dropdown on the
-next build.
+Each list needs an `id`, `name`, `tagline`, and a query that yields at least 16 titles
+(the app draws 16 per bracket). Set `media: "tv"` for a TV lineup
+([ADR 0004](docs/adr/0004-tv-shows-share-the-movie-pipeline.md)) — TV uses different
+discover params, genre names, and vote floors than movies; the config's comments cover
+the differences. Add an entry and the list appears in the dropdown on the next build.
 
 The queries are materialized by [`src/lib/server/tmdb.ts`](src/lib/server/tmdb.ts) while
 the site builds ([ADR 0001](docs/adr/0001-tmdb-build-time-data.md)): the whole app is
 prerendered, so the layout's server `load` runs at build time, fetches every list with
-posters and top-billed cast inline, and bakes complete movies into the pages. Every build
+posters and top-billed cast inline, and bakes complete titles into the pages. Every build
 is a full refresh against TMDB's current ratings, and `assertPlayableLists` fails the
-build rather than shipping an unplayable list. A movie without a poster or cast still
+build rather than shipping an unplayable list. A title without a poster or cast still
 works; the ticket falls back to text.
 
 ## Stack
@@ -79,7 +82,7 @@ track TMDB's current ratings (`.github/workflows/refresh-data.yml`).
 Both need two repository secrets (Settings → Secrets and variables → Actions):
 
 - `TMDB_API_KEY` — free key from [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api);
-  the build fetches all movie data from TMDB.
+  the build fetches all movie and TV data from TMDB.
 - `CLOUDFLARE_API_TOKEN` — create at dash.cloudflare.com → My Profile → API Tokens using
   the **Edit Cloudflare Workers** template (covers the Workers-script upload and the
   custom-domain routes in `wrangler.jsonc`). If the token can see more than one Cloudflare

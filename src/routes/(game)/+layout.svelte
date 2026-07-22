@@ -6,9 +6,9 @@
 
 	let { children } = $props();
 
-	const title = "What to Watch — The Date-Night Movie Bracket";
+	const title = "What to Watch — The Date-Night Bracket";
 	const description =
-		"Sixteen movies enter, one leaves — on your TV. Draw a bracket, vote head-to-head, watch the winner.";
+		"Sixteen contenders enter, one leaves — on your TV. Draw a bracket of movies or shows, vote head-to-head, watch the winner.";
 </script>
 
 <svelte:head>

@@ -12,10 +12,12 @@
 	let showBracket = $state(false);
 
 	const shareTitle = $derived(
-		`🏆 ${champ.title}${champ.year ? ` (${champ.year})` : ""} won the movie bracket`,
+		`🏆 ${champ.title}${champ.year ? ` (${champ.year})` : ""} won the ${
+			champ.media === "tv" ? "TV" : "movie"
+		} bracket`,
 	);
 	const shareDescription = $derived(
-		`${shared.field.length} movies from ${lineup} went head-to-head; this one left. ` +
+		`${shared.field.length} contenders from ${lineup} went head-to-head; this one left. ` +
 			"See the full bracket, then run your own.",
 	);
 	const fallbackImage = $derived(`${page.url.origin}/og.png`);
@@ -60,7 +62,7 @@
 		</div>
 	</Marquee>
 	<p class="share-story">
-		{shared.field.length} movies from {lineup} went head-to-head. This one left.
+		{shared.field.length} contenders from {lineup} went head-to-head. This one left.
 	</p>
 	<div class="row champion__actions">
 		<a class="btn-primary" href="/">Run your own bracket</a>

@@ -11,7 +11,12 @@ function movie(i: number): Movie {
 }
 
 function list(id: string, name: string): MovieList {
-	return { id, name, tagline: `Tagline for ${id}`, movies: Array.from({ length: 16 }, (_, i) => movie(i)) };
+	return {
+		id,
+		name,
+		tagline: `Tagline for ${id}`,
+		movies: Array.from({ length: 16 }, (_, i) => movie(i)),
+	};
 }
 
 describe("home page", () => {

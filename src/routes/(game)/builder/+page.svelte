@@ -1,4 +1,4 @@
-<!-- Screen for entering a hand-picked lineup, one movie per line. -->
+<!-- Screen for entering a hand-picked lineup, one movie or show per line. -->
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import { MIN_CARD_SIZE, parseCard, serializeCard } from "$lib/customCard";
@@ -10,11 +10,11 @@
 </script>
 
 <main class="builder">
-	<p class="eyebrow">Bring your own movies</p>
+	<p class="eyebrow">Bring your own lineup</p>
 	<h1 class="display builder__title">Build Your Card</h1>
 	<section class="panel builder__panel">
 		<label class="picker-label" for="card-text">
-			One movie per line — “Heat (1995)” or just “Heat”
+			One movie or show per line — “Heat (1995)” or just “Heat”
 		</label>
 		<textarea
 			id="card-text"
@@ -26,7 +26,7 @@
 		></textarea>
 		<p class="builder__count" role="status">
 			{parsed.length}
-			{parsed.length === 1 ? "movie" : "movies"} on the card
+			{parsed.length === 1 ? "title" : "titles"} on the card
 			{missing > 0 ? ` — ${missing} more to fill a bracket` : " — ready to draw"}
 		</p>
 		<div class="row">
