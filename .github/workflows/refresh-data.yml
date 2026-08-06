@@ -7,6 +7,9 @@
 # Required repository secrets (Settings → Secrets and variables → Actions):
 #   TMDB_API_KEY          — free key from themoviedb.org/settings/api
 #   CLOUDFLARE_API_TOKEN  — token with Workers edit permission, for the deploy
+#   PUBLIC_POSTHOG_KEY    — PostHog project API key; baked into the bundle at
+#                           build time, so the weekly rebuild needs it too or
+#                           the refresh would quietly ship analytics turned off
 
 name: Refresh movie data
 
@@ -33,3 +36,4 @@ jobs:
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          PUBLIC_POSTHOG_KEY: ${{ secrets.PUBLIC_POSTHOG_KEY }}

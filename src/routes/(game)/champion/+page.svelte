@@ -79,7 +79,7 @@
 			<button
 				type="button"
 				class="btn-ghost"
-				onclick={() => game.drawNewField(data.lists, game.listId)}
+				onclick={() => game.drawNewField(data.lists, game.listId, "run_it_back")}
 			>
 				Run it back
 			</button>

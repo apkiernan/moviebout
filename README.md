@@ -58,13 +58,48 @@ is a full refresh against TMDB's current ratings, and `assertPlayableLists` fail
 build rather than shipping an unplayable list. A title without a poster or cast still
 works; the ticket falls back to text.
 
+## Analytics
+
+Product analytics run on [PostHog](https://posthog.com), set up in
+[`src/lib/analytics.ts`](src/lib/analytics.ts). To switch them on, put your project API key
+(PostHog → Settings → Project → API keys) in `.env`:
+
+```sh
+echo 'PUBLIC_POSTHOG_KEY=phc_...' >> .env
+```
+
+With the key blank or absent, analytics compile away to nothing — the key is inlined at
+build time, so the bundler drops the module and the SDK never ships. That's the default for
+dev, tests, and forks; nobody has to opt out. The same variable is a repository secret for
+CI, and it has to be set on **every** build step rather than just the deploy, because
+`$env/static/public` resolves while the bundle compiles.
+
+Two settings keep the bill down, both in `analytics.ts`:
+
+- **Sampling** — `before_send: sampleByDistinctId(0.5)` sends events for half of visitors.
+  Sampling is per visitor, not per event, so a bracket never shows up half-played and funnel
+  drop-off stays honest. Rates and conversions read straight off the dashboard; **absolute
+  counts need doubling**. Change `SAMPLE_RATE` to re-tune.
+- **No autocapture** — recording every click and input is the biggest driver of event volume
+  and produces reports keyed off CSS selectors that break when markup moves. Session replay
+  and heatmaps are off for the same reason.
+
+Instead the app sends a fixed set of named events, typed as `AnalyticsEvent` so a typo fails
+`npm run check` rather than quietly splitting a funnel in two: `lineup_drawn`,
+`tournament_started`, `bout_decided`, `coin_flipped`, `champion_crowned`, `champion_shared`,
+`bracket_undone`, `bracket_resumed`, `bracket_scrapped`, `custom_card_saved`, and
+`shared_bracket_opened`. Pageviews are captured automatically on client-side navigation.
+`bout_decided` fires up to 15 times per completed bracket and dwarfs the rest — the first
+place to look if volume needs cutting.
+
 ## Stack
 
 SvelteKit + Svelte 5 (runes) + TypeScript, deployed to Cloudflare Workers with
 `@sveltejs/adapter-cloudflare`. Fonts (Anton, Archivo) are bundled via Fontsource. No
-backend, no accounts, no API keys in the client bundle — TMDB is only called at build
-time, and the deployed site's only runtime network use is loading poster images from
-TMDB's CDN. This product uses the TMDB API but is not endorsed or certified by TMDB.
+backend and no accounts; the only key in the client bundle is the PostHog project key, which
+is write-only and meant to be public. TMDB is called only at build time, so at runtime the
+deployed site talks to TMDB's CDN for posters and to PostHog for events, nothing else. This
+product uses the TMDB API but is not endorsed or certified by TMDB.
 
 Game state lives in a runes-based store ([`src/lib/game.svelte.ts`](src/lib/game.svelte.ts))
 shared across the routes; the bracket itself is pure logic in
@@ -79,10 +114,13 @@ push to `main` that passes those checks deploys to Cloudflare Workers automatica
 (`.github/workflows/ci.yml`). A weekly workflow redeploys on a schedule so the lineups
 track TMDB's current ratings (`.github/workflows/refresh-data.yml`).
 
-Both need two repository secrets (Settings → Secrets and variables → Actions):
+Both need these repository secrets (Settings → Secrets and variables → Actions):
 
 - `TMDB_API_KEY` — free key from [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api);
   the build fetches all movie and TV data from TMDB.
+- `PUBLIC_POSTHOG_KEY` — PostHog project API key (see [Analytics](#analytics)). Optional: if
+  it's unset the builds still pass and ship with analytics off. It's a secret only to keep it
+  out of the repo — it isn't sensitive, and it ends up in the client bundle either way.
 - `CLOUDFLARE_API_TOKEN` — create at dash.cloudflare.com → My Profile → API Tokens using
   the **Edit Cloudflare Workers** template (covers the Workers-script upload and the
   custom-domain routes in `wrangler.jsonc`). If the token can see more than one Cloudflare

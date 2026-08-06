@@ -16,7 +16,8 @@
 	},
 	"dependencies": {
 		"@fontsource/anton": "^5.2.7",
-		"@fontsource/archivo": "^5.2.8"
+		"@fontsource/archivo": "^5.2.8",
+		"posthog-js": "^1.407.2"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-cloudflare": "^7.2.9",

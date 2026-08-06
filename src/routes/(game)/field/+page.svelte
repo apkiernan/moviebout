@@ -45,7 +45,7 @@
 			<button
 				type="button"
 				class="btn-ghost"
-				onclick={() => game.drawNewField(data.lists, game.listId)}
+				onclick={() => game.drawNewField(data.lists, game.listId, "shuffle")}
 			>
 				Shuffle again
 			</button>

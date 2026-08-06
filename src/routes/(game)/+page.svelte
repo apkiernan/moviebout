@@ -92,7 +92,7 @@
 		<button
 			type="button"
 			class="btn-primary"
-			onclick={() => game.drawNewField(data.lists, listId)}
+			onclick={() => game.drawNewField(data.lists, listId, "lobby")}
 		>
 			Draw the bracket
 		</button>

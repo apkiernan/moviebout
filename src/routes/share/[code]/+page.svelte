@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from "$app/state";
+	import { track } from "$lib/analytics";
 	import BracketView from "$lib/components/BracketView.svelte";
 	import Marquee from "$lib/components/Marquee.svelte";
 	import type { PageProps } from "./$types";
@@ -10,6 +11,16 @@
 	const champ = $derived(shared.champion);
 	const lineup = $derived(shared.listName ?? "a hand-picked card");
 	let showBracket = $state(false);
+
+	// The other half of champion_shared: how many sent links actually get opened.
+	// This is the only route rendered per-request (ADR 0003), so it's also the
+	// one place a visitor can arrive without having played.
+	$effect(() => {
+		track("shared_bracket_opened", {
+			lineup: shared.listName ?? null,
+			media: champ.media ?? "movie",
+		});
+	});
 
 	const shareTitle = $derived(
 		`🏆 ${champ.title}${champ.year ? ` (${champ.year})` : ""} won the ${

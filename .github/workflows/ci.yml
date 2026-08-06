@@ -7,6 +7,14 @@
 #   CLOUDFLARE_API_TOKEN  — Cloudflare token with Workers edit permission
 #                           (dash.cloudflare.com → My Profile → API Tokens →
 #                           "Edit Cloudflare Workers" template)
+#   PUBLIC_POSTHOG_KEY    — PostHog project API key. Not really a secret (it
+#                           ships in the client bundle), it's a secret here only
+#                           to keep it out of the repo. It is passed to every
+#                           build step, not just the deploy: $env/static/public
+#                           resolves at build time, so the variable has to exist
+#                           or the bundle fails to compile. An unset secret
+#                           arrives as an empty string, which builds fine and
+#                           leaves analytics switched off.
 
 name: CI
 
@@ -33,6 +41,7 @@ jobs:
       - run: npm run build
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          PUBLIC_POSTHOG_KEY: ${{ secrets.PUBLIC_POSTHOG_KEY }}
 
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -57,3 +66,4 @@ jobs:
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          PUBLIC_POSTHOG_KEY: ${{ secrets.PUBLIC_POSTHOG_KEY }}
