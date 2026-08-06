@@ -34,7 +34,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      # `svelte-kit sync` generates the $env/static/* types from the env vars
+      # that exist when it runs, so they have to be set here too or svelte-check
+      # reports every import as a missing member. Values are irrelevant.
       - run: npm run check
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          PUBLIC_POSTHOG_KEY: ${{ secrets.PUBLIC_POSTHOG_KEY }}
       - run: npm test
       # The build prerenders every page, fetching the movie lists from TMDB
       # (ADR 0001) and failing on an unplayable list — so it needs the key.
